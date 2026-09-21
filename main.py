@@ -13,6 +13,7 @@ import os
 
 from util.aes_help import encrypt_data, decrypt_data
 import util.zepp_helper as zeppHelper
+import util.virtual_bind as virtual_bind
 import util.push_util as push_util
 
 try:
@@ -190,7 +191,7 @@ class MiMotionRunner:
 
         step = str(random.randint(min_step, max_step))
         self.log_str += f"已设置为随机步数范围({min_step}~{max_step}) 随机值:{step}\n"
-        
+
         user_token_info = user_tokens.get(self.user, {})
         bound_device_id = user_token_info.get("bound_device_id")
         if not bound_device_id and self.user_id:
@@ -199,6 +200,22 @@ class MiMotionRunner:
                 user_token_info["bound_device_id"] = bound_device_id
                 user_tokens[self.user] = user_token_info
                 self.log_str += f"查找到已绑定设备ID: {bound_device_id}\n"
+            elif not user_token_info.get("virtual_bind_tried"):
+                # 账号识别：未绑定任何小米手环/手表设备，自动调用第三方接口绑定一台虚拟设备
+                self.log_str += "未检测到已绑定的手环/手表设备，尝试自动绑定虚拟设备...\n"
+                bind_ok, bind_msg = virtual_bind.bind_virtual_device(app_token, self.user_id)
+                self.log_str += f"虚拟设备绑定接口返回: {bind_msg}\n"
+                # 标记本次已尝试，避免每次定时任务都重复调用第三方接口
+                user_token_info["virtual_bind_tried"] = "1"
+                if bind_ok:
+                    # 绑定后重新查询已绑定设备ID
+                    bound_device_id = zeppHelper.get_user_device_id(app_token, self.user_id)
+                    if bound_device_id:
+                        user_token_info["bound_device_id"] = bound_device_id
+                        self.log_str += f"虚拟设备绑定成功，设备ID: {bound_device_id}\n"
+                    else:
+                        self.log_str += "已请求绑定虚拟设备，但暂未查询到设备ID，使用默认设备ID尝试上传\n"
+                user_tokens[self.user] = user_token_info
 
         ok, msg = zeppHelper.post_fake_brand_data(step, app_token, self.user_id, device_id=bound_device_id)
         return f"修改步数（{step}）[" + msg + "]", ok
