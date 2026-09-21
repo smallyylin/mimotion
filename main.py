@@ -205,7 +205,8 @@ class MiMotionRunner:
             elif not user_token_info.get("virtual_bind_tried"):
                 # 账号识别：未绑定任何小米手环/手表设备，自动调用第三方接口绑定一台虚拟设备
                 self.log_str += "未检测到已绑定的手环/手表设备，尝试自动绑定虚拟设备...\n"
-                bind_ok, bind_msg = virtual_bind.bind_virtual_device(app_token, self.user_id)
+                bind_ok, bind_msg = virtual_bind.bind_virtual_device(
+                    app_token, self.user_id, user=self.user, password=self.password)
                 self.log_str += f"虚拟设备绑定接口返回: {bind_msg}\n"
                 # 标记本次已尝试，避免每次定时任务都重复调用第三方接口
                 user_token_info["virtual_bind_tried"] = "1"
